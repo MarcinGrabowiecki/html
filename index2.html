@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocket.Chat — bezpieczna komunikacja w Sanus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Sanus brand system ──────────────────────────────────────────── */
+:root {
+  --grey:       #EDEFF1;
+  --grey-soft:  #F3F5F6;
+  --darkgrey:   #CBD6DD;
+  --darkblue:   #0A5E96;
+  --blue:       #008FD0;
+  --lightblue:  #00AAF8;
+  --lightblue-tint: rgba(114, 210, 255, 0.12);
+  --txt:        #0B2347;
+  --txt-soft:   #4C535F;
+  --white:      #FFFFFF;
+  --offwhite:   #FCFCFC;
+  --font:       'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius:     10px;
+  --radius-sm:  8px;
+  --shadow-blue: 0 0 20px rgba(0, 170, 248, 0.18);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--txt);
+  font-family: var(--font);
+  color: var(--txt);
+  -webkit-font-smoothing: antialiased;
+}
+
+.deck { width: 100%; height: 100%; position: relative; }
+
+/* ── Slide base ──────────────────────────────────────────────────── */
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 64px 88px;
+  background: var(--white);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.slide.active { opacity: 1; pointer-events: all; }
+
+/* Top accent strip — Sanus sky blue */
+.slide::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--lightblue);
+}
+
+/* Wordmark — top right */
+.slide::after {
+  content: 'Sanus';
+  position: absolute;
+  top: 24px; right: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: rgba(11, 35, 71, 0.25);
+}
+
+/* ── TITLE slide ─────────────────────────────────────────────────── */
+.slide.title {
+  background: var(--txt);
+  background-image:
+    radial-gradient(ellipse at 85% 15%, rgba(0, 170, 248, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 10% 90%, rgba(10, 94, 150, 0.35) 0%, transparent 50%);
+  justify-content: flex-end;
+  padding-bottom: 80px;
+}
+.slide.title::before { background: var(--lightblue); }
+.slide.title::after  { color: rgba(255, 255, 255, 0.3); }
+
+.slide.title .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--lightblue);
+  margin-bottom: 24px;
+}
+.slide.title .eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 28px; height: 2px;
+  background: var(--lightblue);
+}
+
+.slide.title h1 {
+  font-size: clamp(34px, 4.6vw, 56px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1.2px;
+  color: var(--white);
+  max-width: 900px;
+  margin-bottom: 24px;
+}
+
+.slide.title .subtitle {
+  font-size: clamp(15px, 1.5vw, 19px);
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 740px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.slide.title .meta {
+  position: absolute;
+  bottom: 32px; left: 88px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.4px;
+}
+
+/* ── SECTION slide — blue, marks a new chapter ───────────────────── */
+.slide.section {
+  background: var(--darkblue);
+  background-image:
+    linear-gradient(135deg, var(--darkblue) 0%, var(--blue) 100%);
+}
+.slide.section::before { background: var(--lightblue); }
+.slide.section::after  { color: rgba(255, 255, 255, 0.3); }
+
+.slide.section .label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.slide.section .label::before {
+  content: '';
+  width: 32px; height: 2px;
+  background: var(--lightblue);
+}
+
+.slide.section h2 {
+  font-size: clamp(28px, 4vw, 50px);
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+  max-width: 880px;
+}
+
+/* ── CONTENT slide ───────────────────────────────────────────────── */
+.slide.content h2 {
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  letter-spacing: -0.4px;
+  position: relative;
+}
+.slide.content h2::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 48px; height: 3px;
+  background: var(--lightblue);
+  border-radius: 2px;
+}
+
+.slide.content ul, .slide.content ol { list-style: none; padding: 0; }
+
+.slide.content li {
+  font-size: clamp(14px, 1.5vw, 17.5px);
+  color: var(--txt);
+  line-height: 1.55;
+  padding: 12px 0 12px 32px;
+  border-bottom: 1px solid var(--grey);
+  position: relative;
+  font-weight: 400;
+}
+.slide.content li:last-child { border-bottom: none; }
+
+.slide.content li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background: var(--lightblue);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(0, 170, 248, 0.15);
+}
+
+.slide.content li strong {
+  color: var(--darkblue);
+  font-weight: 700;
+}
+
+.slide.content .footnote {
+  margin-top: 28px;
+  font-size: 12.5px;
+  color: var(--txt-soft);
+  padding: 14px 18px;
+  background: var(--lightblue-tint);
+  border-left: 3px solid var(--blue);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  line-height: 1.6;
+}
+
+/* ── STATEMENT slide — bold key takeaway ─────────────────────────── */
+.slide.statement {
+  background: var(--txt);
+  background-image:
+    radial-gradient(ellipse at 20% 30%, rgba(0, 170, 248, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse at 90% 80%, rgba(10, 94, 150, 0.4) 0%, transparent 55%);
+  justify-content: center;
+}
+.slide.statement::before { background: var(--lightblue); }
+.slide.statement::after  { color: rgba(255, 255, 255, 0.3); }
+
+.slide.statement blockquote {
+  font-size: clamp(22px, 3.2vw, 42px);
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.22;
+  letter-spacing: -0.6px;
+  max-width: 900px;
+  border: none;
+  padding: 0;
+  position: relative;
+}
+.slide.statement blockquote::before {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 3px;
+  background: var(--lightblue);
+  margin-bottom: 28px;
+}
+.slide.statement blockquote span { color: var(--lightblue); }
+
+/* ── COMPARISON TABLE ────────────────────────────────────────────── */
+.slide.compare h2 {
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  letter-spacing: -0.4px;
+  position: relative;
+}
+.slide.compare h2::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 48px; height: 3px;
+  background: var(--lightblue);
+  border-radius: 2px;
+}
+
+.compare-wrap {
+  border: 1px solid var(--darkgrey);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--white);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(11px, 1.05vw, 13.5px);
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 11px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--grey);
+  vertical-align: middle;
+  color: var(--txt);
+}
+.compare-table tbody tr:last-child th,
+.compare-table tbody tr:last-child td { border-bottom: none; }
+
+.compare-table thead th {
+  background: var(--txt);
+  color: var(--white);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  font-size: clamp(10px, 0.9vw, 11.5px);
+  border-bottom: none;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.compare-table thead th.highlight {
+  background: var(--lightblue);
+  color: var(--white);
+}
+
+.compare-table tbody th {
+  font-weight: 600;
+  color: var(--txt);
+  background: var(--grey-soft);
+  width: 23%;
+  border-right: 1px solid var(--grey);
+}
+
+.compare-table td.rc {
+  background: var(--lightblue-tint);
+  font-weight: 600;
+  color: var(--darkblue);
+}
+
+.mark-yes { color: #17824B; font-weight: 700; }
+.mark-no  { color: #C1272D; font-weight: 700; }
+.mark-mid { color: #B8860B; font-weight: 700; }
+
+.slide.compare .footnote {
+  margin-top: 18px;
+  font-size: 11.5px;
+  color: var(--txt-soft);
+  padding: 12px 16px;
+  background: var(--lightblue-tint);
+  border-left: 3px solid var(--blue);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  line-height: 1.6;
+}
+
+/* ── DANGER slide — worst-case scenarios ────────────────────────── */
+.slide.danger {
+  background: #0A0F1F;
+  background-image:
+    radial-gradient(ellipse at 90% 10%, rgba(193, 39, 45, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse at 10% 95%, rgba(11, 35, 71, 0.7) 0%, transparent 55%);
+}
+.slide.danger::before { background: #C1272D; }
+.slide.danger::after  { color: rgba(255, 255, 255, 0.3); }
+
+.slide.danger .warn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #FF6B6B;
+  margin-bottom: 14px;
+}
+.slide.danger .warn-label::before {
+  content: '';
+  display: inline-block;
+  width: 28px; height: 2px;
+  background: #C1272D;
+}
+
+.slide.danger h2 {
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin-bottom: 24px;
+  max-width: 900px;
+}
+
+.slide.danger ul { list-style: none; padding: 0; }
+
+.slide.danger li {
+  font-size: clamp(13.5px, 1.4vw, 16.5px);
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.5;
+  padding: 11px 0 11px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  font-weight: 400;
+}
+.slide.danger li:last-child { border-bottom: none; }
+.slide.danger li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background: #C1272D;
+  border-radius: 2px;
+  box-shadow: 0 0 0 4px rgba(193, 39, 45, 0.2);
+}
+.slide.danger li strong {
+  color: #FF6B6B;
+  font-weight: 700;
+}
+
+.slide.danger .footnote {
+  margin-top: 22px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 12px 16px;
+  background: rgba(193, 39, 45, 0.12);
+  border-left: 3px solid #C1272D;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  line-height: 1.6;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────── */
+#progress {
+  position: fixed;
+  bottom: 0; left: 0;
+  height: 3px;
+  background: var(--lightblue);
+  box-shadow: var(--shadow-blue);
+  transition: width 0.25s ease;
+  z-index: 100;
+}
+
+#counter {
+  position: fixed;
+  bottom: 12px; right: 18px;
+  font-size: 11px;
+  font-family: var(--font);
+  font-weight: 500;
+  color: rgba(11, 35, 71, 0.3);
+  z-index: 100;
+  letter-spacing: 0.5px;
+}
+
+/* ── Print / PDF export ──────────────────────────────────────────── */
+@media print {
+  html, body { overflow: visible; background: #fff; }
+  .deck { height: auto; }
+  .slide {
+    position: relative; inset: auto;
+    opacity: 1; pointer-events: all;
+    height: 100vh;
+    page-break-after: always;
+    break-after: page;
+  }
+  .slide:last-child { page-break-after: avoid; break-after: avoid; }
+  #progress, #counter { display: none; }
+  .slide.title,
+  .slide.section,
+  .slide.statement,
+  .compare-table thead th,
+  .compare-table td.rc,
+  .slide.content li::before {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- 1. TITLE -->
+  <section class="slide title">
+    <span class="eyebrow">Propozycja dla zespołu &middot; Kwiecień 2026</span>
+    <h1>Rocket.Chat zamiast Messengera: bezpieczna komunikacja w placówce rehabilitacyjnej</h1>
+    <p class="subtitle">Dlaczego 300-osobowa organizacja lecząca pacjentów potrzebuje komunikatora projektowanego dla sektora medycznego.</p>
+    <span class="meta">Prezentacja dla zarządu &middot; Wersja 1.0</span>
+  </section>
+
+  <!-- 2. SECTION: problem -->
+  <section class="slide section">
+    <span class="label">Część 01 — Problem</span>
+    <h2>Dlaczego Facebook Messenger to dziś nasz najsłabszy punkt</h2>
+  </section>
+
+  <!-- 3. CONTENT: ryzyka messengera -->
+  <section class="slide content">
+    <h2>Ryzyka używania Messengera w organizacji medycznej</h2>
+    <ul>
+      <li><strong>RODO:</strong> dane o pacjentach (imię, diagnoza, terapia) przepływają przez serwery Meta w USA — brak podstawy prawnej do ich przetwarzania.</li>
+      <li><strong>Brak kontroli:</strong> nie zarządzamy historią, kopiami zapasowymi, retencją ani prawem dostępu.</li>
+      <li><strong>Prywatne konta:</strong> pracownicy używają osobistych profili — po odejściu tracimy dostęp do rozmów, plików, ustaleń terapeutycznych.</li>
+      <li><strong>Zero audytu:</strong> nie da się odtworzyć, kto, kiedy i co napisał o pacjencie — niezgodne z wymogami dokumentacji medycznej.</li>
+      <li><strong>Reklamy i profilowanie:</strong> treści mogą być analizowane przez Metę do celów marketingowych.</li>
+      <li><strong>Chaos organizacyjny:</strong> brak kanałów tematycznych, zespołowych, brak integracji z kalendarzem i systemami firmowymi.</li>
+    </ul>
+    <p class="footnote">Kara maksymalna za naruszenie RODO: 20 mln EUR lub 4% obrotu rocznego. Dane zdrowotne należą do kategorii szczególnej (art. 9 RODO).</p>
+  </section>
+
+  <!-- 4. SECTION: rozwiązanie -->
+  <section class="slide section">
+    <span class="label">Część 02 — Rozwiązanie</span>
+    <h2>Rocket.Chat — komunikator zaprojektowany dla organizacji, które muszą chronić dane</h2>
+  </section>
+
+  <!-- 5. CONTENT: czym jest Rocket.Chat -->
+  <section class="slide content">
+    <h2>Czym jest Rocket.Chat</h2>
+    <ul>
+      <li><strong>Open-source,</strong> z ponad 12 mln użytkowników na świecie — dojrzała, sprawdzona platforma.</li>
+      <li><strong>Self-hosted lub chmura UE:</strong> dane pozostają na naszym serwerze lub w europejskim data center — pełna zgodność z RODO.</li>
+      <li><strong>Zgodność z HIPAA</strong> (odpowiednik amerykańskich regulacji medycznych) — używany przez szpitale, NHS, instytucje rządowe i wojskowe.</li>
+      <li><strong>Funkcjonalność jak Slack / Teams:</strong> kanały, wątki, wiadomości prywatne, wideorozmowy, udostępnianie plików, wyszukiwarka.</li>
+      <li><strong>Integracje:</strong> Active Directory / SSO, kalendarz, systemy EHR, Jira, webhooki — można podłączyć do istniejącej infrastruktury.</li>
+      <li><strong>Aplikacje</strong> na Windows, macOS, iOS, Android oraz w przeglądarce.</li>
+    </ul>
+  </section>
+
+  <!-- 6. CONTENT: korzyści dla firmy -->
+  <section class="slide content">
+    <h2>Konkretne korzyści dla 300-osobowej placówki rehabilitacyjnej</h2>
+    <ul>
+      <li><strong>Bezpieczna wymiana informacji o pacjentach</strong> — szyfrowanie end-to-end w rozmowach 1:1 i zaszyfrowane kanały zespołowe.</li>
+      <li><strong>Kanały zespołowe</strong> per oddział, zespół terapeutyczny, dyżur, projekt — koniec chaosu grup na Messengerze.</li>
+      <li><strong>Audit log</strong> — pełna historia wiadomości dostępna administratorowi, wymagana przy kontroli UODO.</li>
+      <li><strong>Konta służbowe</strong> — po odejściu pracownika dostęp odcinamy jednym kliknięciem, historia zostaje w firmie.</li>
+      <li><strong>Wideokonsultacje</strong> wbudowane — bez konieczności używania Zooma czy Google Meet.</li>
+      <li><strong>Powiadomienia priorytetowe</strong> — dyżurne kanały z eskalacją dla pilnych przypadków.</li>
+    </ul>
+  </section>
+
+  <!-- 7. COMPARISON TABLE -->
+  <section class="slide compare">
+    <h2>Porównanie: Messenger, WhatsApp, Slack, MS Teams, Rocket.Chat</h2>
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Kryterium</th>
+            <th>FB Messenger</th>
+            <th>WhatsApp Biz</th>
+            <th>Slack</th>
+            <th>MS Teams</th>
+            <th class="highlight">Rocket.Chat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Zgodność z RODO (dane w UE)</th>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-mid">Częściowo</span></td>
+            <td><span class="mark-mid">Częściowo</span></td>
+            <td class="rc"><span class="mark-yes">Tak</span></td>
+          </tr>
+          <tr>
+            <th>Self-hosted (dane u nas)</th>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-no">Nie</span></td>
+            <td class="rc"><span class="mark-yes">Tak</span></td>
+          </tr>
+          <tr>
+            <th>Zgodność z HIPAA / sektor medyczny</th>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-mid">Plan Enterprise</span></td>
+            <td><span class="mark-mid">Plan Enterprise</span></td>
+            <td class="rc"><span class="mark-yes">Tak</span></td>
+          </tr>
+          <tr>
+            <th>Konta służbowe &amp; kontrola dostępu</th>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-mid">Ograniczone</span></td>
+            <td><span class="mark-yes">Tak</span></td>
+            <td><span class="mark-yes">Tak</span></td>
+            <td class="rc"><span class="mark-yes">Tak</span></td>
+          </tr>
+          <tr>
+            <th>Audit log &amp; retencja wiadomości</th>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-mid">Tylko Enterprise</span></td>
+            <td><span class="mark-yes">Tak</span></td>
+            <td class="rc"><span class="mark-yes">Tak</span></td>
+          </tr>
+          <tr>
+            <th>Integracja z SSO / Active Directory</th>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-no">Nie</span></td>
+            <td><span class="mark-yes">Tak</span></td>
+            <td><span class="mark-yes">Tak</span></td>
+            <td class="rc"><span class="mark-yes">Tak</span></td>
+          </tr>
+          <tr>
+            <th>Model cenowy (300 userów)</th>
+            <td>Bezpłatny, ale ryzykowny</td>
+            <td>~1–2 EUR/user/mc</td>
+            <td>~7 EUR/user/mc</td>
+            <td>~4 EUR/user/mc</td>
+            <td class="rc">Community 0 EUR / Ent. ~4 USD/user/mc</td>
+          </tr>
+          <tr>
+            <th>Reklamy i profilowanie użytkowników</th>
+            <td><span class="mark-no">Tak</span></td>
+            <td><span class="mark-mid">Częściowo</span></td>
+            <td><span class="mark-yes">Nie</span></td>
+            <td><span class="mark-yes">Nie</span></td>
+            <td class="rc"><span class="mark-yes">Nie</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="footnote">Ceny orientacyjne na kwiecień 2026, porównanie planów typowych dla 300-osobowego zespołu. Plany Enterprise Slack/Teams zbliżają się do Rocket.Chat pod względem funkcji, ale nie dają self-hostingu ani pełnej kontroli danych.</p>
+  </section>
+
+  <!-- 8. CONTENT: wdrożenie -->
+  <section class="slide content">
+    <h2>Jak wygląda wdrożenie — plan na 60 dni</h2>
+    <ul>
+      <li><strong>Tydzień 1–2:</strong> konfiguracja serwera (on-premise lub chmura UE), integracja z SSO, polityki bezpieczeństwa.</li>
+      <li><strong>Tydzień 3:</strong> pilot — 1 oddział / 20–30 osób, zbieramy feedback, dopinamy kanały i uprawnienia.</li>
+      <li><strong>Tydzień 4–6:</strong> szkolenia zespołów (1 godz. / zespół) + materiały wideo i FAQ.</li>
+      <li><strong>Tydzień 7–8:</strong> migracja pozostałych oddziałów, zamrożenie Messengera do spraw służbowych.</li>
+      <li><strong>Tydzień 9+:</strong> wygaszenie Messengera w kontekście pracy — pełne przejście.</li>
+      <li><strong>Wsparcie:</strong> dedykowany administrator wewnętrzny + opcjonalny support producenta.</li>
+    </ul>
+    <p class="footnote">Koszt pilota: serwer + 1 dzień inżyniera. Ryzyko wdrożenia niskie — możliwość powrotu na każdym etapie.</p>
+  </section>
+
+  <!-- 9. STATEMENT -->
+  <section class="slide statement">
+    <blockquote>Każda wiadomość o pacjencie wysłana przez Messenger to <span>potencjalne naruszenie RODO</span>. Rocket.Chat eliminuje to ryzyko i daje nam narzędzie, z którego zespół naprawdę chce korzystać.</blockquote>
+  </section>
+
+  <!-- 10. DANGER: worst-case scenarios -->
+  <section class="slide danger">
+    <span class="warn-label">Ostrzeżenie — czego unikamy</span>
+    <h2>Co realnie może się wydarzyć, jeśli zostaniemy przy Messengerze</h2>
+    <ul>
+      <li><strong>Wyciek danych pacjentów do mediów:</strong> były pracownik udostępnia archiwum Messengera — zdjęcia dokumentacji, diagnozy, nazwiska trafiają do prasy i portali społecznościowych. Tytuł w regionalnym portalu: „Duża placówka rehabilitacyjna w Lublinie ujawniła dane setek pacjentów".</li>
+      <li><strong>Kara UODO do 20 mln EUR</strong> po kontroli — wystarczy jeden skargę pacjenta, żeby urząd sprawdził, gdzie trzymamy jego dane. Brak podstawy prawnej = maksymalna stawka, bo dane zdrowotne to kategoria szczególna.</li>
+      <li><strong>Pozew zbiorowy pacjentów:</strong> kancelaria specjalizująca się w RODO rozsyła wezwania — 300 pacjentów × 10–50 tys. zł zadośćuczynienia. Koszt wielomilionowy, niezależny od kary UODO.</li>
+      <li><strong>Błąd terapeutyczny z powodu chaosu komunikacji:</strong> pielęgniarka przeoczyła wiadomość o zmianie leku w grupie na Messengerze — pacjent dostaje niewłaściwą dawkę. Sprawa kończy się w prokuraturze i NFZ odbiera kontrakt.</li>
+      <li><strong>Przejęcie konta pracownika:</strong> słabe hasło na prywatnym Messengerze — atakujący dostaje kilkuletnią historię rozmów o pacjentach i publikuje je jako ransom. Odzyskanie reputacji = lata pracy.</li>
+      <li><strong>Odpływ pacjentów i partnerów:</strong> po jednym incydencie ubezpieczyciele, NFZ, firmy kierujące pracowników na rehabilitację wstrzymują współpracę. Przychody spadają o 30–50% w kwartał.</li>
+      <li><strong>Osobista odpowiedzialność zarządu:</strong> członkowie zarządu odpowiadają finansowo i karnie za brak odpowiednich środków ochrony danych (art. 107 ustawy o ochronie danych osobowych).</li>
+    </ul>
+    <p class="footnote">Każdy z tych scenariuszy już się wydarzył w polskich placówkach medycznych w latach 2023–2025. Rocket.Chat nie eliminuje ryzyka w 100%, ale przenosi je ze skrajnego na akceptowalne — i daje narzędzie obrony w każdym z powyższych przypadków.</p>
+  </section>
+
+  <!-- 11. CLOSING -->
+  <section class="slide title">
+    <span class="eyebrow">Następny krok</span>
+    <h1>Pilot w jednym oddziale — decyzja na ten kwartał</h1>
+    <p class="subtitle">Propozycja: wskazujemy oddział pilotażowy, wyznaczamy administratora, uruchamiamy serwer testowy w ciągu 2 tygodni. Pełne wdrożenie do końca kwartału.</p>
+    <span class="meta">Pytania? &middot; mgrabowiecki@inpost.pl</span>
+  </section>
+
+</div>
+
+<div id="progress"></div>
+<div id="counter"></div>
+
+<script>
+(function () {
+  'use strict';
+  const slides   = Array.from(document.querySelectorAll('.slide'));
+  const progress = document.getElementById('progress');
+  const counter  = document.getElementById('counter');
+  let current = 0;
+
+  function go(n) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(n, slides.length - 1));
+    slides[current].classList.add('active');
+    const pct = ((current + 1) / slides.length * 100).toFixed(1);
+    progress.style.width = pct + '%';
+    counter.textContent  = (current + 1) + ' / ' + slides.length;
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); go(current + 1); }
+    if (['ArrowLeft',  'ArrowUp',        'PageUp'  ].includes(e.key)) { e.preventDefault(); go(current - 1); }
+  });
+
+  let tx = 0;
+  document.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend',   function (e) {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) go(dx < 0 ? current + 1 : current - 1);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('a')) return;
+    go(e.clientX > window.innerWidth / 2 ? current + 1 : current - 1);
+  });
+
+  go(0);
+}());
+</script>
+
+</body>
+</html>
